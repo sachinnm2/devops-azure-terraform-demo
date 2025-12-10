@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch: {}   # Allow manual runs
+  workflow_dispatch:
 
 env:
   IMAGE_NAME: demo-app
@@ -18,40 +18,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      ########################################
-      # Login to Azure
-      ########################################
+      # 🔐 Login to Azure using Service Principal (creds JSON)
       - name: Azure Login
         uses: azure/login@v1
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      ########################################
-      # Login to ACR
-      ########################################
-      - name: Azure CLI - Login to ACR
+      # 🔐 Login to Azure Container Registry
+      - name: Login to ACR
         run: |
           az acr login --name ${{ secrets.ACR_NAME }}
 
-      ########################################
-      # Build & Push Docker Image
-      ########################################
+      # 🛠 Build the container image
       - name: Build Docker image
         run: |
           docker build \
             -t ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} \
             ./app
 
-      - name: Push Docker image to ACR
+      # 📤 Push image to ACR
+      - name: Push Docker image
         run: |
           docker push ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
-      ########################################
-      # Restart Web App (Trigger Deployment)
-      ########################################
+      # 🚀 Restart Azure Web App (Deploy latest image)
       - name: Restart Azure Web App
         run: |
           az webapp restart \
