@@ -1,9 +1,9 @@
-name: Terraform Infra + Build & Deploy Container to Azure Web App
+name: Terraform Infra + Build & Deploy Container
 
 on:
   push:
     branches:
-      - branch
+      - main
   workflow_dispatch:
 
 env:
@@ -11,67 +11,50 @@ env:
   IMAGE_TAG: latest
 
 jobs:
-  infra-build-deploy:
+  infra_build_deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # Azure login using service principal JSON in AZURE_CREDENTIALS
-      - name: Azure Login
+      - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Set up Terraform CLI
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.7.5
 
-      # Terraform init / plan / apply
       - name: Terraform Init
         working-directory: ./infra
         run: terraform init
 
-      - name: Terraform Plan
-        working-directory: ./infra
-        run: terraform plan -out=tfplan
-
       - name: Terraform Apply
         working-directory: ./infra
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply -auto-approve
 
-      # Capture Terraform outputs into GitHub environment variables
-      - name: Export Terraform outputs
-        id: tf_outputs
+      - name: Export Terraform Outputs
         working-directory: ./infra
+        id: tf
         run: |
           echo "ACR_LOGIN_SERVER=$(terraform output -raw acr_login_server)" >> $GITHUB_ENV
           echo "ACR_NAME=$(terraform output -raw acr_name)" >> $GITHUB_ENV
           echo "WEBAPP_NAME=$(terraform output -raw webapp_name)" >> $GITHUB_ENV
           echo "RESOURCE_GROUP_NAME=$(terraform output -raw resource_group_name)" >> $GITHUB_ENV
 
-      # Login to ACR
       - name: Login to ACR
-        run: |
-          az acr login --name "$ACR_NAME"
+        run: az acr login --name "$ACR_NAME"
 
-      # Build Docker image
-      - name: Build Docker image
+      - name: Build Docker Image
         run: |
-          docker build \
-            -t ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG} \
-            ./app
+          docker build -t ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG} ./app
 
-      # Push Docker image
-      - name: Push Docker image
+      - name: Push Image to ACR
         run: |
           docker push ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}
 
-      # Restart Web App to pick up latest image
-      - name: Restart Azure Web App
+      - name: Restart Web App
         run: |
           az webapp restart \
             --name "$WEBAPP_NAME" \
