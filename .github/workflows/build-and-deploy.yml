@@ -3,7 +3,7 @@ name: Build and Deploy Container to Azure Web App
 on:
   push:
     branches:
-      - main
+      - branch
   workflow_dispatch:
 
 env:
