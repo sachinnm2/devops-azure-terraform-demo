@@ -1,41 +1,63 @@
-variable "location" {
-  description = "Azure region for all resources"
-  type        = string
-  default     = "uksouth"
+##############################################
+# Resource Group
+##############################################
+
+resource "azurerm_resource_group" "rg" {
+  name     = var.resource_group_name
+  location = var.location
 }
 
-variable "resource_group_name" {
-  description = "Name of the resource group"
-  type        = string
-  default     = "devops-demo-rg"
+##############################################
+# Azure Container Registry
+##############################################
+
+resource "azurerm_container_registry" "acr" {
+  name                = var.acr_name
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  sku                 = "Basic"
+  admin_enabled       = true
 }
 
-variable "acr_name" {
-  description = "Azure Container Registry name (must be globally unique)"
-  type        = string
-  default     = "devopsdemoacr1234"
+##############################################
+# App Service Plan (Linux)
+##############################################
+
+resource "azurerm_service_plan" "asp" {
+  name                = var.app_service_plan_name
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  os_type  = "Linux"
+  sku_name = "B1"
 }
 
-variable "app_service_plan_name" {
-  description = "App Service Plan name"
-  type        = string
-  default     = "devops-demo-asp"
-}
+##############################################
+# Web App for Containers (Linux)
+##############################################
 
-variable "web_app_name" {
-  description = "Web App for Containers name"
-  type        = string
-  default     = "devops-demo-container-webapp"
-}
+resource "azurerm_linux_web_app" "webapp" {
+  name                = var.web_app_name
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  service_plan_id     = azurerm_service_plan.asp.id
 
-variable "image_name" {
-  description = "Container image name (repository) in ACR"
-  type        = string
-  default     = "demo-app"
-}
+  site_config {
+    application_stack {
+      # This tells App Service which image to pull
+      docker_image_name = "${azurerm_container_registry.acr.login_server}/${var.image_name}:${var.image_tag}"
+    }
+  }
 
-variable "image_tag" {
-  description = "Container image tag"
-  type        = string
-  default     = "latest"
+  app_settings = {
+    # Port your container listens on
+    WEBSITES_PORT = "3000"
+
+    # ACR registry credentials (simple demo approach)
+    DOCKER_REGISTRY_SERVER_URL      = "https://${azurerm_container_registry.acr.login_server}"
+    DOCKER_REGISTRY_SERVER_USERNAME = azurerm_container_registry.acr.admin_username
+    DOCKER_REGISTRY_SERVER_PASSWORD = azurerm_container_registry.acr.admin_password
+  }
+
+  https_only = true
 }
