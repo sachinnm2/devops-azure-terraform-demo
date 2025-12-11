@@ -3,7 +3,7 @@ name: Terraform Infra + Build & Deploy Container
 on:
   push:
     branches:
-      - main
+      - main1
   workflow_dispatch:
 
 env:
