@@ -61,6 +61,7 @@ resource "azurerm_linux_web_app" "webapp" {
       docker_image     = "${azurerm_container_registry.acr.login_server}/${var.image_name}"
       docker_image_tag = var.image_tag
     }
+	acr_use_managed_identity_credentials = true
   }
 
   app_settings = {
