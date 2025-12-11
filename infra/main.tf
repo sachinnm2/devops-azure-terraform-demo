@@ -1,67 +1,41 @@
-##############################################
-# Resource Group
-##############################################
-
-resource "azurerm_resource_group" "rg" {
-  name     = var.resource_group_name
-  location = var.location
+variable "location" {
+  description = "Azure region for all resources"
+  type        = string
+  default     = "uksouth"
 }
 
-##############################################
-# Azure Container Registry
-##############################################
-
-resource "azurerm_container_registry" "acr" {
-  name                = var.acr_name
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  sku                 = "Basic"
-
-  # Enabled for simplicity; in real-world you would often use managed identity instead
-  admin_enabled       = true
+variable "resource_group_name" {
+  description = "Name of the resource group"
+  type        = string
+  default     = "devops-demo-rg"
 }
 
-##############################################
-# App Service Plan (Linux)
-##############################################
-
-resource "azurerm_service_plan" "asp" {
-  name                = var.app_service_plan_name
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-
-  os_type  = "Linux"
-  sku_name = "B1" # Basic, cost-effective for demo
+variable "acr_name" {
+  description = "Azure Container Registry name (must be globally unique)"
+  type        = string
+  default     = "devopsdemoacr1234"
 }
 
-##############################################
-# Web App for Containers (Linux)
-##############################################
+variable "app_service_plan_name" {
+  description = "App Service Plan name"
+  type        = string
+  default     = "devops-demo-asp"
+}
 
-resource "azurerm_linux_web_app" "webapp" {
-  name                = var.web_app_name
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  service_plan_id     = azurerm_service_plan.asp.id
+variable "web_app_name" {
+  description = "Web App for Containers name"
+  type        = string
+  default     = "devops-demo-container-webapp"
+}
 
-  site_config {
-    application_stack {
-      docker_image_name = "${azurerm_container_registry.acr.login_server}/demo-app:latest"
-    }
-  }
+variable "image_name" {
+  description = "Container image name (repository) in ACR"
+  type        = string
+  default     = "demo-app"
+}
 
-  app_settings = {
-    # Required so App Service knows which port the container listens on
-    WEBSITES_PORT = "3000"
-
-    # ACR credentials (simple demo approach using admin user)
-    DOCKER_REGISTRY_SERVER_URL      = "https://${azurerm_container_registry.acr.login_server}"
-    DOCKER_REGISTRY_SERVER_USERNAME = azurerm_container_registry.acr.admin_username
-    DOCKER_REGISTRY_SERVER_PASSWORD = azurerm_container_registry.acr.admin_password
-
-    # Optional: for logging
-    WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
-  }
-
-  https_only = true
+variable "image_tag" {
+  description = "Container image tag"
+  type        = string
+  default     = "latest"
 }
