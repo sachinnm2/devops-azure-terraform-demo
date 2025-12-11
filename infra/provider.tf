@@ -8,7 +8,7 @@ terraform {
     }
   }
 
-  # Local state for simplicity in the assignment
+  # For the assignment we'll use local state in the GitHub runner workspace.
   backend "local" {}
 }
 
