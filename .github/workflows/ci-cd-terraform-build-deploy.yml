@@ -3,7 +3,7 @@ name: Terraform Infra + Build & Deploy Container
 on:
   push:
     branches:
-      - main1
+      - main
   workflow_dispatch:
 
 env:
@@ -31,7 +31,7 @@ jobs:
 
       - name: Terraform Init
         working-directory: ./infra
-        run: terraform init
+        run: terraform init -upgrade
 
       - name: Terraform Apply
         working-directory: ./infra
