@@ -44,6 +44,7 @@ resource "azurerm_linux_web_app" "webapp" {
   site_config {
     application_stack {
 	  docker_image_name   = "${azurerm_container_registry.acr.login_server}/${var.image_name}:${var.image_tag}"
+	  docker_registry_url = "https://${azurerm_container_registry.acr.login_server}"
     }
   }
 
