@@ -1,9 +1,19 @@
 output "acr_login_server" {
-  description = "Login server for ACR"
+  description = "ACR login server"
   value       = azurerm_container_registry.acr.login_server
 }
 
-output "webapp_url" {
-  description = "URL of the deployed Web App"
-  value       = "https://${azurerm_linux_web_app.webapp.default_hostname}"
+output "acr_name" {
+  description = "ACR name"
+  value       = azurerm_container_registry.acr.name
+}
+
+output "webapp_name" {
+  description = "Web App name"
+  value       = azurerm_linux_web_app.webapp.name
+}
+
+output "resource_group_name" {
+  description = "Resource Group name"
+  value       = azurerm_resource_group.rg.name
 }
