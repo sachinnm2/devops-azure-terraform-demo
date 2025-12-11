@@ -8,7 +8,13 @@ terraform {
     }
   }
 
-  backend "local" {}
+  backend "remote" {
+    organization = "MyDevopsDemo"
+
+    workspaces {
+      name = "devops-demo"
+    }
+  }
 }
 
 provider "azurerm" {
