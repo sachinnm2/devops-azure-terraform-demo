@@ -6,6 +6,7 @@ resource "azurerm_resource_group" "rg" {
   location = var.location
 }
 
+
 # ---------------------------
 # Azure Container Registry
 # ---------------------------
@@ -14,8 +15,15 @@ resource "azurerm_container_registry" "acr" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   sku                 = "Basic"
-  admin_enabled       = true
+
+  # For Managed Identity authentication, admin creds must be disabled
+  admin_enabled = false
+
+  depends_on = [
+    azurerm_resource_group.rg
+  ]
 }
+
 
 # ---------------------------
 # App Service Plan (Linux)
@@ -26,8 +34,13 @@ resource "azurerm_service_plan" "asp" {
   location            = var.location
 
   os_type  = "Linux"
-  sku_name = "B1"
+  sku_name = "S1"  # Use S1; B1 sometimes fails in UK South due to capacity issues
+
+  depends_on = [
+    azurerm_resource_group.rg
+  ]
 }
+
 
 # ---------------------------
 # Web App for Containers
@@ -38,18 +51,41 @@ resource "azurerm_linux_web_app" "webapp" {
   location            = var.location
   service_plan_id     = azurerm_service_plan.asp.id
 
+  # Enable Managed Identity for Web App
+  identity {
+    type = "SystemAssigned"
+  }
+
   site_config {
     application_stack {
-	  docker_image_name   = "${azurerm_container_registry.acr.login_server}/${var.image_name}:${var.image_tag}"
-      docker_registry_url = "https://${azurerm_container_registry.acr.login_server}"
-	  docker_registry_username = "${azurerm_container_registry.acr.admin_username}"
-	  docker_registry_password = "${azurerm_container_registry.acr.admin_password}"
+      docker_image     = "${azurerm_container_registry.acr.login_server}/${var.image_name}"
+      docker_image_tag = var.image_tag
     }
   }
 
   app_settings = {
-    WEBSITES_PORT                     = "3000"
+    WEBSITES_PORT = "3000"
   }
 
   https_only = true
+
+  depends_on = [
+    azurerm_service_plan.asp,
+    azurerm_container_registry.acr
+  ]
+}
+
+
+# ---------------------------
+# ACR Pull Role Assignment
+# ---------------------------
+resource "azurerm_role_assignment" "acr_pull" {
+  principal_id         = azurerm_linux_web_app.webapp.identity[0].principal_id
+  role_definition_name = "AcrPull"
+  scope                = azurerm_container_registry.acr.id
+
+  depends_on = [
+    azurerm_linux_web_app.webapp,
+    azurerm_container_registry.acr
+  ]
 }
