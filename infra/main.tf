@@ -17,7 +17,7 @@ resource "azurerm_container_registry" "acr" {
   sku                 = "Basic"
 
   # For Managed Identity authentication, admin creds must be disabled
-  admin_enabled = false
+  admin_enabled = true
 
   depends_on = [
     azurerm_resource_group.rg
@@ -50,15 +50,13 @@ resource "azurerm_linux_web_app" "webapp" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = var.location
   service_plan_id     = azurerm_service_plan.asp.id
-  
-  identity {
-    type = "SystemAssigned"
-  }
 
   site_config {
     application_stack {
       docker_image_name     = "${var.image_name}:${var.image_tag}"
       docker_registry_url = "https://${azurerm_container_registry.acr.login_server}"
+	  docker_registry_username = "${azurerm_container_registry.acr.admin_username}"
+	  docker_registry_password = "${azurerm_container_registry.acr.admin_password}"
     }
   }
 
@@ -71,17 +69,5 @@ resource "azurerm_linux_web_app" "webapp" {
   depends_on = [
     azurerm_service_plan.asp,
     azurerm_container_registry.acr
-  ]
-}
-# ---------------------------
-# ACR Pull Role Assignment
-# ---------------------------
-resource "azurerm_role_assignment" "acr_pull" {
-  principal_id         = azurerm_linux_web_app.webapp.identity[0].principal_id
-  role_definition_name = "AcrPull"
-  scope                = azurerm_container_registry.acr.id
-
-  depends_on = [
-    azurerm_linux_web_app.webapp
   ]
 }
