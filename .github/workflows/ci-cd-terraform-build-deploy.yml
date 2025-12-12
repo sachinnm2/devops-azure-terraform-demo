@@ -1,41 +1,34 @@
-name: Terraform Infra + Build & Deploy Container
+name: CD – Deploy Infra & App
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 env:
   IMAGE_NAME: demo-app
   IMAGE_TAG: latest
 
 jobs:
-  infra_build_deploy:
+  deploy:
     runs-on: ubuntu-latest
+
+    environment:
+      name: production   # <-- GitHub Environment (adds approval gate)
 
     concurrency:
       group: prod-deploy
       cancel-in-progress: true
 
     steps:
-      # ---------------------------
-      # Checkout Code
-      # ---------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ---------------------------
-      # Azure Login
-      # ---------------------------
       - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # ---------------------------
-      # Terraform Setup
-      # ---------------------------
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
@@ -43,9 +36,6 @@ jobs:
         run: |
           echo 'credentials "app.terraform.io" { token = "${{ secrets.TF_API_TOKEN }}" }' > ~/.terraformrc
 
-      # ---------------------------
-      # Terraform Init & Apply
-      # ---------------------------
       - name: Terraform Init
         working-directory: ./infra
         run: terraform init -upgrade
@@ -54,9 +44,6 @@ jobs:
         working-directory: ./infra
         run: terraform apply -auto-approve
 
-      # ---------------------------
-      # Export Terraform Outputs
-      # ---------------------------
       - name: Export Terraform Outputs
         working-directory: ./infra
         run: |
@@ -65,41 +52,25 @@ jobs:
           echo "WEBAPP_NAME=$(terraform output -raw webapp_name)" >> $GITHUB_ENV
           echo "RESOURCE_GROUP_NAME=$(terraform output -raw resource_group_name)" >> $GITHUB_ENV
 
-      # ---------------------------
-      # Docker Build & Push
-      # ---------------------------
       - name: Login to ACR
         run: az acr login --name "$ACR_NAME"
 
       - name: Build Docker Image
-        run: |
-          docker build \
-            -t ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG} \
-            ./app
+        run: docker build -t ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG} ./app
 
       - name: Push Docker Image
-        run: |
-          docker push ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}
+        run: docker push ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}
 
-      # ---------------------------
-      # Wait for ACR Image Availability
-      # ---------------------------
       - name: Wait for ACR propagation
         run: sleep 30
 
-      # ---------------------------
-      # Restart Web App
-      # ---------------------------
       - name: Restart Azure Web App
         run: |
           az webapp restart \
             --name "$WEBAPP_NAME" \
             --resource-group "$RESOURCE_GROUP_NAME"
 
-      # ---------------------------
-      # Optional: Health Check
-      # ---------------------------
       - name: Verify Application Health
         run: |
-          sleep 90
+          sleep 30
           curl -f https://${WEBAPP_NAME}.azurewebsites.net/health
