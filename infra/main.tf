@@ -17,7 +17,7 @@ resource "azurerm_container_registry" "acr" {
   sku                 = "Basic"
 
   # For Managed Identity authentication, admin creds must be disabled
-  admin_enabled = true
+  admin_enabled = false
 
   depends_on = [
     azurerm_resource_group.rg
