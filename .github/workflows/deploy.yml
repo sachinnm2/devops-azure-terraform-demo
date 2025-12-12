@@ -1,4 +1,4 @@
-name: CD – Deploy Infra & App
+name: CD – Terraform + Deploy
 
 on:
   push:
@@ -10,64 +10,108 @@ env:
   IMAGE_TAG: latest
 
 jobs:
-  deploy:
+# -----------------------
+# Terraform – DEV
+# -----------------------
+  terraform_dev:
     runs-on: ubuntu-latest
-
-    environment:
-      name: production   # <-- GitHub Environment (adds approval gate)
-
-    concurrency:
-      group: prod-deploy
-      cancel-in-progress: true
+    environment: dev
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Login to Azure
-        uses: azure/login@v1
+      - uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3
 
-      - name: Configure Terraform Cloud Token
-        run: |
-          echo 'credentials "app.terraform.io" { token = "${{ secrets.TF_API_TOKEN }}" }' > ~/.terraformrc
+      - run: terraform init -upgrade
+        working-directory: infra
 
-      - name: Terraform Init
-        working-directory: ./infra
-        run: terraform init -upgrade
+      - run: terraform apply -auto-approve -var-file=env/dev.tfvars
+        working-directory: infra
 
-      - name: Terraform Apply
-        working-directory: ./infra
-        run: terraform apply -auto-approve
+# -----------------------
+# Build & Push Image
+# -----------------------
+  build_push:
+    needs: terraform_dev
+    runs-on: ubuntu-latest
 
-      - name: Export Terraform Outputs
-        working-directory: ./infra
-        run: |
-          echo "ACR_LOGIN_SERVER=$(terraform output -raw acr_login_server)" >> $GITHUB_ENV
-          echo "ACR_NAME=$(terraform output -raw acr_name)" >> $GITHUB_ENV
-          echo "WEBAPP_NAME=$(terraform output -raw webapp_name)" >> $GITHUB_ENV
-          echo "RESOURCE_GROUP_NAME=$(terraform output -raw resource_group_name)" >> $GITHUB_ENV
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Login to ACR
-        run: az acr login --name "$ACR_NAME"
+      - uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Build Docker Image
-        run: docker build -t ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG} ./app
+      - run: |
+          az acr login --name ${{ secrets.DEV_ACR_NAME }}
+          docker build -t ${{ secrets.DEV_ACR_LOGIN_SERVER }}/${IMAGE_NAME}:${IMAGE_TAG} ./app
+          docker push ${{ secrets.DEV_ACR_LOGIN_SERVER }}/${IMAGE_NAME}:${IMAGE_TAG}
 
-      - name: Push Docker Image
-        run: docker push ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}
+# -----------------------
+# Deploy DEV
+# -----------------------
+  deploy_dev:
+    needs: build_push
+    runs-on: ubuntu-latest
+    environment: dev
 
-      - name: Restart Azure Web App
-        run: |
+    steps:
+      - uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - run: |
           az webapp restart \
-            --name "$WEBAPP_NAME" \
-            --resource-group "$RESOURCE_GROUP_NAME"
+            --name "${{ secrets.DEV_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.DEV_RG }}"
 
-      - name: Verify Application Health
-        run: |
-          sleep 120
-          curl -f https://${WEBAPP_NAME}.azurewebsites.net/health
+      - run: sleep 90
+      - run: curl -f https://${{ secrets.DEV_WEBAPP_NAME }}.azurewebsites.net/health
+
+# -----------------------
+# Terraform – PROD (Approval)
+# -----------------------
+  terraform_prod:
+    needs: deploy_dev
+    runs-on: ubuntu-latest
+    environment: prod
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - run: terraform init -upgrade
+        working-directory: infra
+
+      - run: terraform apply -auto-approve -var-file=env/prod.tfvars
+        working-directory: infra
+
+# -----------------------
+# Deploy PROD
+# -----------------------
+  deploy_prod:
+    needs: terraform_prod
+    runs-on: ubuntu-latest
+    environment: prod
+
+    steps:
+      - uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - run: |
+          az webapp restart \
+            --name "${{ secrets.PROD_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.PROD_RG }}"
+
+      - run: sleep 120
+      - run: curl -f https://${{ secrets.PROD_WEBAPP_NAME }}.azurewebsites.net/health
