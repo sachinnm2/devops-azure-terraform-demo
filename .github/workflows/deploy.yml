@@ -69,5 +69,5 @@ jobs:
 
       - name: Verify Application Health
         run: |
-          sleep 90
+          sleep 120
           curl -f https://${WEBAPP_NAME}.azurewebsites.net/health
