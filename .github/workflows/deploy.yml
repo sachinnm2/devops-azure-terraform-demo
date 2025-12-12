@@ -61,9 +61,6 @@ jobs:
       - name: Push Docker Image
         run: docker push ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}
 
-      - name: Wait for ACR propagation
-        run: sleep 30
-
       - name: Restart Azure Web App
         run: |
           az webapp restart \
