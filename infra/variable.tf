@@ -1,6 +1,9 @@
 variable "environment" {}
 variable "location" {}
 variable "resource_group_name" {}
-variable "webapp_name" {}
 variable "acr_name" {}
+variable "app_service_plan_name" {}
+variable "webapp_name" {}
 variable "sku_name" {}
+variable "image_name" {}
+variable "image_tag" {}
