@@ -58,8 +58,10 @@ resource "azurerm_linux_web_app" "webapp" {
 
   site_config {
     application_stack {
-      docker_image     = "${azurerm_container_registry.acr.login_server}/${var.image_name}"
-      docker_image_tag = var.image_tag
+      docker_image_name     = "${azurerm_container_registry.acr.login_server}/${var.image_name}:${var.image_tag}"
+      docker_registry_url = "https://${azurerm_container_registry.acr.login_server}"
+	  docker_registry_username = "${azurerm_container_registry.acr.admin_username}"
+	  docker_registry_password = "${azurerm_container_registry.acr.admin_password}"
     }
   }
 
@@ -71,21 +73,6 @@ resource "azurerm_linux_web_app" "webapp" {
 
   depends_on = [
     azurerm_service_plan.asp,
-    azurerm_container_registry.acr
-  ]
-}
-
-
-# ---------------------------
-# ACR Pull Role Assignment
-# ---------------------------
-resource "azurerm_role_assignment" "acr_pull" {
-  principal_id         = azurerm_linux_web_app.webapp.identity[0].principal_id
-  role_definition_name = "AcrPull"
-  scope                = azurerm_container_registry.acr.id
-
-  depends_on = [
-    azurerm_linux_web_app.webapp,
     azurerm_container_registry.acr
   ]
 }
