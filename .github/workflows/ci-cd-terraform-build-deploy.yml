@@ -56,6 +56,9 @@ jobs:
       - name: Push Image to ACR
         run: |
           docker push ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}
+		  
+	  - name: Wait for ACR image availability
+        run: sleep 60
 
       - name: Restart Web App
         run: |
