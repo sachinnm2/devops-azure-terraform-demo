@@ -28,6 +28,10 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: Configure Terraform Cloud Token
+        run: |
+          echo 'credentials "app.terraform.io" { token = "${{ secrets.TF_API_TOKEN }}" }' > ~/.terraformrc
+
       - name: Terraform Init (Dev)
         working-directory: infra
         run: terraform init -upgrade
@@ -113,6 +117,10 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+
+      - name: Configure Terraform Cloud Token
+        run: |
+          echo 'credentials "app.terraform.io" { token = "${{ secrets.TF_API_TOKEN }}" }' > ~/.terraformrc
 
       - name: Terraform Init (Prod)
         working-directory: infra
