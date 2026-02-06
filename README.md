@@ -1,4 +1,4 @@
-# DevOps Take-Home Assignment – Terraform, Azure, and GitHub Actions
+# DevOps Take-Home Assignment – Terraform, Azure, and GitHub Actions.
 
 This repo demonstrates a simple DevOps workflow:
 
